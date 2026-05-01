@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>task manager</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #f4f6f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background: white;
+      padding: 20px;
+      width: 350px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    input {
+      width: 70%;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 8px 12px;
+      background: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    button:hover {
+      opacity: 0.9;
+    }
+
+    li {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #eee;
+      padding: 8px;
+      border-radius: 5px;
+    }
+
+    .delete-btn {
+      background: red;
+    }
+
+    #stats {
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>task manager</h1>
+
+  <input id="taskInput" placeholder="enter task" onkeypress="handleEnter(event)">
+  <button onclick="addTask()">add</button>
+
+  <input id="searchInput" placeholder="search tasks..." oninput="loadTasks()">
+
+  <select id="filter" onchange="loadTasks()">
+    <option value="all">all</option>
+    <option value="completed">completed</option>
+    <option value="pending">pending</option>
+  </select>
+
+  <div id="stats"></div>
+
+  <ul id="taskList"></ul>
+</div>
+
+<script>
+const API = "http://localhost:3000";
+
+async function loadTasks() {
+  const res = await fetch(API + "/tasks");
+  let data = await res.json();
+
+  const search = document.getElementById("searchInput").value.toLowerCase();
+  const filter = document.getElementById("filter").value;
+
+  if (search) {
+    data = data.filter(task => task.text.toLowerCase().includes(search));
+  }
+
+  if (filter === "completed") {
+    data = data.filter(task => task.completed);
+  } else if (filter === "pending") {
+    data = data.filter(task => !task.completed);
+  }
+
+  // stats
+  const total = data.length;
+  const completed = data.filter(t => t.completed).length;
+  const pending = total - completed;
+
+  document.getElementById("stats").innerHTML =
+    "total: " + total + " | completed: " + completed + " | pending: " + pending;
+
+  const list = document.getElementById("taskList");
+  list.innerHTML = "";
+
+  data.forEach((task) => {
+    list.innerHTML += `
+      <li>
+        <span style="text-decoration:${task.completed ? 'line-through' : 'none'}">
+          ${task.text}
+        </span>
+
+        <input type="checkbox"
+          ${task.completed ? "checked" : ""}
+          onclick="toggleTask('${task._id}')">
+
+        <button class="delete-btn" onclick="deleteTask('${task._id}')">x</button>
+      </li>`;
+  });
+}
+
+async function addTask() {
+  const input = document.getElementById("taskInput");
+
+  if (input.value.trim() === "") return;
+
+  await fetch(API + "/tasks", {
+    method: "post",
+    headers: {"content-type": "application/json"},
+    body: JSON.stringify({ task: input.value })
+  });
+
+  input.value = "";
+  loadTasks();
+}
+
+async function deleteTask(id) {
+  await fetch(API + "/tasks/" + id, { method: "delete" });
+  loadTasks();
+}
+
+async function toggleTask(id) {
+  await fetch(API + "/tasks/" + id, { method: "put" });
+  loadTasks();
+}
+
+function handleEnter(event) {
+  if (event.key === "Enter") {
+    addTask();
+  }
+}
+
+loadTasks();
+</script>
+
+</body>
+</html>
